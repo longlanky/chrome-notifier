@@ -42,6 +42,7 @@ h2 {
 /* Inputs
 ***************************************************************************************************/
 input[type=text],
+input[type=email],
 input[type=number] {
     margin-bottom: 3px;
     border: 1px solid #d9d9d9;
@@ -62,6 +63,10 @@ input#api-key {
     margin-right: .5em;
 }
 
+input#from-email {
+    width: 16em;
+}
+
 input.bad {
     border: 1px solid #f00;
 }
@@ -76,12 +81,14 @@ input[type=number] {
 }
 
 input[type=text]:hover,
+input[type=email]:hover,
 input[type=number]:hover {
     border: 1px solid #b9b9b9;
     border-top: 1px solid #a0a0a0;
 }
 
 input[type=text]:focus,
+input[type=email]:focus,
 input[type=number]:focus {
     outline: none;
     border: 1px solid #888;
@@ -295,14 +302,14 @@ span.resolve {
     padding: 0px;
     border-color: transparent #06ac38 #06ac38 #06ac38;
 
-    -webkit-animation: 'rotate' 1s infinite linear;
-    animation: 'rotate' 1s infinite linear;
+    -webkit-animation: rotate 1s infinite linear;
+    animation: rotate 1s infinite linear;
 }
-@-webkit-keyframes 'rotate' {
+@-webkit-keyframes rotate {
     0%   { -webkit-transform: rotate(0deg); }
     100% { -webkit-transform: rotate(360deg); }
 }
-@keyframes 'rotate' {
+@keyframes rotate {
     0%   { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }

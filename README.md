@@ -1,31 +1,45 @@
 # PagerDuty Chrome Notifier
 
-A Google Chrome extension to show PagerDuty notifications using Chrome's notification API. The notification will display some information about the alert, along with buttons to acknowledge and resolve it right from the notification!
+A Google Chrome and Microsoft Edge extension to show PagerDuty notifications using the browser's notification API. The notification will display some information about the alert, along with buttons to acknowledge and resolve it right from the notification!
 
 ![An example of the notifications.](example.png)
 
 All you need to do for it to work is to have an active session on your PagerDuty subdomain, or provide a PagerDuty API key for your account.
 
+## Installing from Source
+The extension uses Manifest V3 and requires Chrome or Edge 120 or newer.
+
+1. Open `chrome://extensions` (Chrome) or `edge://extensions` (Edge).
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select the `pd-notifier` directory.
+4. The options page will open so you can configure your account.
+
 ## Using an API Key
-The extension can be used without having to provide an API key, however, in that case, it will only work if you have an active session for your PagerDuty domain. That means you must be logged into your domain, but you don't need to keep the tab open.
+The extension can be used without having to provide an API key, however, in that case, it will only work if you have an active session for your PagerDuty domain. That means you must be logged into your domain, but you don't need to keep the tab open. Session-based access relies on PagerDuty's web app endpoints and browser cookie behaviour, so an API key is recommended for reliable notifications.
+
+The API key is stored only in the browser's local extension storage, and is not synced to your other devices.
+
+If you use an account-level (general access) API key, PagerDuty requires the email address of a PagerDuty user for any changes, so set **Your PagerDuty Login Email** to be able to acknowledge/resolve incidents. This isn't needed for personal user API keys.
 
 If you decide to use an API key instead, you can use either a read-only key, or a read/write key. If you use a read-only key, then the Acknowledge and Resolve buttons will not function, as they would not have permission to update your incidents. If you prefer to use a read-only key, you can configure the extension to remove these action buttons from the notifications.
 
 ## Generating an API Key
 
-See "[Generating a General Access REST API Key](https://support.pagerduty.com/docs/using-the-api#section-generating-a-general-access-rest-api-key)" for instructions on how to get an API key.
+See "[API Access Keys](https://support.pagerduty.com/docs/api-access-keys)" for instructions on how to get an API key.
 
 ## Configuration Options
 
 * **Account Subdomain** - (Required) The subdomain for your PagerDuty account. If your account is https://example.pagerduty.com, you would use "example".
 * **PagerDuty API Key** - (Optional) An API key for your PagerDuty account. If not provided, an active session on your subdomain is needed. If a read-only key is provided, then the Acknowledge/Resolve buttons will be non-functional.
+* **Your PagerDuty Login Email** - (Optional) Required to acknowledge/resolve incidents when using an account-level API key.
 * **Filter Users** - (Optional) A list of comma-separated user ID's, which will only trigger notifications for incidents assigned to those users.
 * **Filter Teams** - (Optional) A list of comma-separated teams ID's, which will only trigger notifications for incidents assigned to escalation policies that belong to those teams.
 * **Filter Services** - (Optional) A list of comma-separated service ID's, which will only trigger notifications for incidents that are part of those services.
+* **Check for new incidents every** - How often to poll PagerDuty for new incidents (30 seconds to 5 minutes). Browsers don't allow extensions to wake up more often than every 30 seconds.
 * **Include Low Urgency Alerts?** - If checked, then you will receive notifications for low urgency alerts.
 * **Remove Ack/Resolve Buttons?** - If checked, the Acknowledge/Resolve buttons are removed from the notification. You should use this if you only wish to provide a read-only API key.
 * **Open incident in new tab on acknowledge?** - If checked, whenever you click the "Acknowledge" button, the incident page will be opened in a new tab.
-* **Require interaction to dismiss notification?** - If checked, the notification will remain on your desktop until you interact with it by clicking on an option.
+* **Require interaction to dismiss notification?** - If checked, the notification will remain on your desktop until you interact with it by clicking on an option. On macOS this depends on the notification style set for your browser in System Settings.
 * **Play a notification sound?** - If checked, a short sound will play whenever a new notification is triggered.
 * **Show triggered count on icon?** - If checked, the icon in your toolbar will show the number of triggered incidents matching your filters.
 

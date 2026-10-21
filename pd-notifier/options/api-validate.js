@@ -1,100 +1,86 @@
 // These functions will allow us to validate the API access, so people can self-debug any incorrect credentials.
 
-// Should be exactly 20 chars long.
-function isKeyFormatValid()
-{
-    e = getElement('api-key');
-    return (e.value == "" || e.value.length == 20);
-}
+import { PDAPI, API_HOST, isValidSubdomain, isValidAPIKey } from '../lib/pd-api.js';
+import { LOCAL_DEFAULTS } from '../lib/config.js';
+import { getElement, isAPIKeyObfuscated } from './options.js';
 
 // Status message updater helpers.
+function setStatus(className, message)
+{
+    getElement('access-status').className = className;
+    getElement('access-status').textContent = message;
+}
+
 function statusError(message = '')
 {
-    getElement('access-status').className = 'ko';
-    getElement('access-status').innerHTML = '&#x2717; ' + message;
+    setStatus('ko', '✗ ' + message);
 }
 
 function statusOK(message = '')
 {
-    getElement('access-status').className = 'ok';
-    getElement('access-status').innerHTML = '&#x2713; ' + message;
+    setStatus('ok', '✓ ' + message);
 }
 
 function statusWarning(message = '')
 {
-    getElement('access-status').className = 'warn';
-    getElement('access-status').innerHTML = '&#x26a0; ' + message;
+    setStatus('warn', '⚠ ' + message);
 }
 
-function validateAPIKeyAccess(apiKey)
+async function validateAPIKeyAccess(apiKey, subdomain)
 {
-    // Validate if they can access v2 API endpoint using API Key.
-    var v2api = new PDAPI(apiKey);
-    try
+    // Validate if they can access the API using the API key.
+    if (apiKey)
     {
-        v2api.GET('https://api.pagerduty.com/users?limit=1',
+        if (!isValidAPIKey(apiKey)) { statusError('Invalid API key! (Contains invalid chars?)'); return; }
 
-        // If so, the API key is valid (for either v1 or v2)
-        function success(data)
-        {
-            statusOK();
-        },
-
-        // If we get to here, then API key is invalid (or not supplied). Validate if cookie auth is working.
-        function error(status, data)
-        {
-            // Don't pass an API key, will attempt cookie auth using their subdomain.
-            var v1api = new PDAPI('', 1);
-            v1api.GET('https://' + getElement('account-subdomain').value + '.pagerduty.com/api/v1/users?limit=1',
-            function success(data)
-            {
-                // If HTTP200 and 2007 error code returned, then subdomain is invalid. Flag that up.
-                try
-                {
-                    if (data.error.code == 2007) { statusError("Account not valid, check subdomain");  return; }
-                }
-                catch(e) {}
-
-                // Otherwise, cookie auth is good.
-                statusWarning("Invalid API key! (Cookie auth is OK)");
-            },
-            function error(status, data)
-            {
-                // Cookie auth was bad, enumerate the reasons.
-                if (status == 401) { statusError("Invalid API key! (Not logged in for cookie auth)"); return; }
-                if (status == 403) { statusError("API key valid, but you are not authorized to access the API"); return; }
-                if (status == 404) { statusError("Account not valid, check subdomain"); return; }
-                statusError("Access Denied (" + status + "). Unable to access using API key or cookie auth");
-            });
-        });
+        const response = await new PDAPI(apiKey).get(API_HOST + '/users?limit=1');
+        if (response.ok) { statusOK(); return; }
+        if (response.status === 0) { statusError('Unable to reach PagerDuty'); return; }
     }
-    catch(e)
-    {
-        statusError("Invalid API key! (Contains invalid chars?)");
-    }
-}
 
-// Add ability to validate API key access, so people can test themselves.
-document.getElementById('api-validate').addEventListener('click', function ()
-{
-    // Clear any old status
-    getElement('access-status').className = 'loading';
-    getElement('access-status').innerHTML = '';
+    // If we get to here, then API key is invalid (or not supplied). Validate if cookie auth is working.
+    if (!isValidSubdomain(subdomain)) { statusError('Account not valid, check subdomain'); return; }
 
-    // If API key in field is new, use that.
-    if (!isAPIKeyObfuscated(getElement('api-key').value))
+    // Don't pass an API key, will attempt cookie auth using their subdomain.
+    const response = await new PDAPI(null).get('https://' + subdomain + '.pagerduty.com/api/v1/users?limit=1');
+    if (response.ok)
     {
-        validateAPIKeyAccess(getElement('api-key').value);
+        // If HTTP200 and 2007 error code returned, then subdomain is invalid. Flag that up.
+        if (response.data && response.data.error && response.data.error.code == 2007)
+        {
+            statusError('Account not valid, check subdomain');
+            return;
+        }
+
+        // Otherwise, cookie auth is good.
+        if (apiKey) { statusWarning('Invalid API key! (Cookie auth is OK)'); }
+        else        { statusOK('Using browser session'); }
         return;
     }
 
-    // Otherwise, use the API key we have in storage.
-    chrome.storage.sync.get(
+    // Cookie auth was bad, enumerate the reasons.
+    const prefix = apiKey ? 'Invalid API key! ' : 'No API key, and ';
+    if (response.status === 0)   { statusError('Unable to reach PagerDuty'); return; }
+    if (response.status === 401) { statusError(prefix + '(Not logged in for cookie auth)'); return; }
+    if (response.status === 403) { statusError('Not authorized to access the API'); return; }
+    if (response.status === 404) { statusError('Account not valid, check subdomain'); return; }
+    statusError('Access Denied (' + response.status + '). Unable to access using API key or cookie auth');
+}
+
+// Add ability to validate API key access, so people can test themselves.
+getElement('api-validate').addEventListener('click', async function ()
+{
+    // Clear any old status
+    setStatus('loading', '');
+
+    const subdomain = getElement('account-subdomain').value.trim().toLowerCase();
+
+    // If API key in field is new, use that. Otherwise, use the API key we have in storage.
+    let apiKey = getElement('api-key').value.trim();
+    if (isAPIKeyObfuscated(apiKey))
     {
-        pdAPIKey: '',
-    },
-    function(items)
-    {
-        validateAPIKeyAccess(items.pdAPIKey);
-    });
+        apiKey = (await chrome.storage.local.get(LOCAL_DEFAULTS)).pdAPIKey;
+    }
+
+    await validateAPIKeyAccess(apiKey, subdomain);
 });

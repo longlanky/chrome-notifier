@@ -1,55 +1,91 @@
 // Helper wrappers for PagerDuty API methods.
-function PDAPI(apiKey, version = 2)
+
+// The official REST API host, used whenever an API key is provided.
+export const API_HOST = 'https://api.pagerduty.com';
+
+// Subdomains are interpolated into hostnames, so be strict to avoid sending requests (and API keys)
+// anywhere other than *.pagerduty.com.
+export function isValidSubdomain(subdomain)
 {
-    // Members
-    var self       = this;   // Self-reference
-    self.apiKey    = apiKey; // API key used for requests.
-    self.userAgent = "pd-chrome-notifier-" + chrome.app.getDetails().version; // Will be in the X-Requested-With header of requests.
+    return typeof subdomain === 'string' && /^[a-z0-9][a-z0-9-]*$/i.test(subdomain);
+}
 
-    // Wrapper for generic XMLHttpRequest stuff
-    this.prepareRequest = function prepareRequest(method, url)
+// API keys are opaque tokens. Only require printable, non-space ASCII of a sensible length.
+export function isValidAPIKey(key)
+{
+    return typeof key === 'string' && /^[\x21-\x7E]{16,128}$/.test(key);
+}
+
+export function isValidEmail(email)
+{
+    return typeof email === 'string' && /^[^\s@]+@[^\s@]+$/.test(email);
+}
+
+export class PDAPI
+{
+    // apiKey:    Optional API key. If not provided, the browser session cookie is used instead.
+    // version:   REST API version to request in the Accept header.
+    // fromEmail: Email of a PagerDuty user, required by account-level API keys for write requests.
+    constructor(apiKey, { version = 2, fromEmail = null } = {})
     {
-        var xhr = new XMLHttpRequest();
-        xhr.open(method, url, true);
-        xhr.setRequestHeader("X-Requested-With", self.userAgent);
-        xhr.setRequestHeader("X-PagerDuty-Api-Local", 1);
-        xhr.setRequestHeader("Accept", "application/vnd.pagerduty+json;version=" + version);
+        this.apiKey    = isValidAPIKey(apiKey) ? apiKey : null;
+        this.version   = version;
+        this.fromEmail = isValidEmail(fromEmail) ? fromEmail : null;
+        this.userAgent = 'pd-chrome-notifier-' + chrome.runtime.getManifest().version; // Will be in the X-Requested-With header of requests.
+    }
 
-        // If we have a valid API key, authenticate using that.
-        if (self.apiKey != null && self.apiKey.length == 20)
+    // Perform a request. Never throws; resolves to { ok, status, data }, where status is 0 for
+    // network errors and data is the parsed JSON body (or null).
+    async request(method, url, body = null)
+    {
+        const headers = {
+            'X-Requested-With': this.userAgent,
+            'Accept': 'application/vnd.pagerduty+json;version=' + this.version
+        };
+
+        // If we have a valid API key, authenticate using that. Otherwise rely on the session cookie.
+        if (this.apiKey)
         {
-            xhr.setRequestHeader("Authorization", "Token token=" + self.apiKey);
+            headers['Authorization'] = 'Token token=' + this.apiKey;
+        }
+        else
+        {
+            headers['X-PagerDuty-Api-Local'] = '1';
         }
 
-        return xhr;
-    }
-
-    // Perform a GET request, and trigger the callback with the result.
-    this.GET = function GET(url, callback, error_callback = null)
-    {
-        var req = self.prepareRequest("GET", url);
-        req.onreadystatechange = function()
+        if (body !== null)
         {
-            if (req.readyState == 4)
-            {
-                try
-                {
-                    callback(JSON.parse(req.responseText));
-                }
-                catch(e)
-                {
-                    if (error_callback != null) { error_callback(req.status, req.responseText); }
-                }
-            }
-        };
-        req.send();
+            headers['Content-Type'] = 'application/json';
+            if (this.fromEmail) { headers['From'] = this.fromEmail; }
+        }
+
+        try
+        {
+            const response = await fetch(url, {
+                method:      method,
+                headers:     headers,
+                body:        body === null ? undefined : JSON.stringify(body),
+                credentials: this.apiKey ? 'omit' : 'include'
+            });
+
+            let data = null;
+            try { data = await response.json(); } catch (e) {}
+
+            return { ok: response.ok, status: response.status, data: data };
+        }
+        catch (e)
+        {
+            return { ok: false, status: 0, data: null };
+        }
     }
 
-    // Fire and forget a PUT request.
-    this.PUT = function PUT(url, data)
+    get(url)
     {
-        var req = self.prepareRequest("PUT", url);
-        req.setRequestHeader("Content-Type", "application/json");
-        req.send(data);
+        return this.request('GET', url);
+    }
+
+    put(url, body)
+    {
+        return this.request('PUT', url, body);
     }
 }

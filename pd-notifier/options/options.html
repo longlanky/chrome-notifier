@@ -20,7 +20,13 @@
             <span id="access-status"></span>
             <input id="api-key" type="text" size="20" />
             <button id="api-validate">Validate</button>
-            <span class="info">Optionally provide an <a href="https://support.pagerduty.com/docs/using-the-api#section-generating-a-general-access-rest-api-key">API key</a> for your PagerDuty account. [20 characters]</span>
+            <span class="info">Optionally provide an <a href="https://support.pagerduty.com/docs/api-access-keys">API key</a> for your PagerDuty account. Recommended, as it doesn't depend on being logged in. The key is only stored on this computer.</span>
+        </div>
+
+        <div class="option">
+            <label>Your PagerDuty Login Email</label>
+            <input id="from-email" type="email" size="20" placeholder="you@example.com" />
+            <span class="info">Required to Acknowledge/Resolve when using an account (general access) API key. Not needed for a personal user API key or browser session.</span>
         </div>
 
         <div class="notice">
@@ -58,6 +64,16 @@
 
         <hr/>
         <h2>Customizations</h2>
+
+        <div class="option select">
+            <label>Check for new incidents every</label>
+            <select id="poll-seconds" name="poll-seconds">
+              <option value="30">30 seconds</option>
+              <option value="60">1 minute</option>
+              <option value="120">2 minutes</option>
+              <option value="300">5 minutes</option>
+            </select>
+        </div>
 
         <div class="option checkbox">
             <label>Include low urgency incidents?</label>
@@ -101,8 +117,7 @@
         <p>&#x2713; Changes saved!</p>
     </section>
 
-    <script src="../lib/pd-api.js"></script>
-    <script src="options.js"></script>
-    <script src="api-validate.js"></script>
-    </body>
+    <script type="module" src="options.js"></script>
+    <script type="module" src="api-validate.js"></script>
+</body>
 </html>

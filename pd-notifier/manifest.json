@@ -1,9 +1,10 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 3,
     "name": "PagerDuty Notifier",
     "short_name": "PD Notifier",
     "description": "Desktop notifications for your PagerDuty incidents.",
-    "version": "0.23",
+    "version": "1.0.0",
+    "minimum_chrome_version": "120",
     "author": "Rich Adams (https://richadams.me)",
     "icons": {
          "16": "images/icon-16.png",
@@ -14,24 +15,24 @@
     },
     "permissions": [
         "notifications",
-        "background",
         "storage",
         "alarms",
-        "https://*.pagerduty.com/api/v1/*",
-        "contextMenus"
+        "contextMenus",
+        "offscreen"
+    ],
+    "host_permissions": [
+        "https://*.pagerduty.com/*"
     ],
     "options_ui": {
         "open_in_tab": true,
         "page": "options/options.html"
     },
     "background": {
-        "scripts": [
-            "lib/pd-api.js",
-            "background/pd-notifier.js"
-        ],
-        "persistent": true
+        "service_worker": "background/service-worker.js",
+        "type": "module"
     },
-    "browser_action": {
-      "default_icon": "images/browser-icon-32.png"
+    "action": {
+      "default_icon": "images/browser-icon-32.png",
+      "default_title": "PagerDuty Notifier"
     }
 }

@@ -1,80 +1,72 @@
 // This provides all of the logic for handling user configuration of the extension.
 
+import { isValidSubdomain, isValidAPIKey, isValidEmail } from '../lib/pd-api.js';
+import { SYNC_DEFAULTS, LOCAL_DEFAULTS } from '../lib/config.js';
+
+const OBFUSCATION = '••••••••••••••••';
+
 // Helper functions to obfuscate the API key on the UI, and detect if it's obfuscated.
-function obfuscateAPIKey(key)
+export function obfuscateAPIKey(key)
 {
-    if (key == "") { return ""; }
-    return "••••••••••••••••" + key.slice(16);
+    if (!key) { return ''; }
+    return OBFUSCATION + key.slice(-4);
 }
-function isAPIKeyObfuscated(key)
+export function isAPIKeyObfuscated(key)
 {
-    return key.slice(0, 16) == "••••••••••••••••";
+    return key.startsWith(OBFUSCATION);
+}
+
+// Wrapper method to get the element of a field from the page.
+export function getElement(elementId)
+{
+    return document.getElementById(elementId);
 }
 
 // Add an event listener to restore previously save configuration.
-document.addEventListener('DOMContentLoaded', function ()
+document.addEventListener('DOMContentLoaded', async function ()
 {
-    chrome.storage.sync.get(
-    {
-        // Defaults
-        pdAccountSubdomain: '',
-        pdAPIKey: '',
-        pdIncludeLowUrgency: false,
-        pdRemoveButtons: false,
-        pdOpenOnAck: false,
-        pdNotifSound: false,
-        pdRequireInteraction: false,
-        pdFilterServices: '',
-        pdFilterUsers: '',
-        pdFilterTeams: '',
-        pdShowBadgeUpdates: false,
-        pdBadgeLocation: ''
-    },
-    function(items)
-    {
-        // Update the page elements appropriately.
-        getElement('account-subdomain').value     = items.pdAccountSubdomain;
-        getElement('api-key').value               = obfuscateAPIKey(items.pdAPIKey);
-        getElement('low-urgency').checked         = items.pdIncludeLowUrgency;
-        getElement('remove-buttons').checked      = items.pdRemoveButtons;
-        getElement('open-on-ack').checked         = items.pdOpenOnAck;
-        getElement('notif-sound').checked         = items.pdNotifSound;
-        getElement('require-interaction').checked = items.pdRequireInteraction;
-        getElement('filter-services').value       = items.pdFilterServices;
-        getElement('filter-users').value          = items.pdFilterUsers;
-        getElement('filter-teams').value          = items.pdFilterTeams;
-        getElement('show-badge').checked          = items.pdShowBadgeUpdates;
+    const [items, local] = await Promise.all([
+        chrome.storage.sync.get(SYNC_DEFAULTS),
+        chrome.storage.local.get(LOCAL_DEFAULTS)
+    ]);
 
-        // Default to "Triggered" for badgeLocation.
-        if (items.pdBadgeLocation)
-        {
-          getElement('option-' + items.pdBadgeLocation).selected = true;
-        }
-        else
-        {
-          getElement('option-triggered').selected = true;
-        }
-    });
+    // Update the page elements appropriately.
+    getElement('account-subdomain').value     = items.pdAccountSubdomain;
+    getElement('api-key').value               = obfuscateAPIKey(local.pdAPIKey);
+    getElement('from-email').value            = items.pdFromEmail;
+    getElement('poll-seconds').value          = String(items.pdPollSeconds);
+    getElement('low-urgency').checked         = items.pdIncludeLowUrgency;
+    getElement('remove-buttons').checked      = items.pdRemoveButtons;
+    getElement('open-on-ack').checked         = items.pdOpenOnAck;
+    getElement('notif-sound').checked         = items.pdNotifSound;
+    getElement('require-interaction').checked = items.pdRequireInteraction;
+    getElement('filter-services').value       = items.pdFilterServices || '';
+    getElement('filter-users').value          = items.pdFilterUsers || '';
+    getElement('filter-teams').value          = items.pdFilterTeams || '';
+    getElement('show-badge').checked          = items.pdShowBadgeUpdates;
+    getElement('badge-location').value        = items.pdBadgeLocation || 'triggered';
+
+    // Fall back to the default if the stored value isn't one of the options.
+    if (!getElement('poll-seconds').value) { getElement('poll-seconds').value = String(SYNC_DEFAULTS.pdPollSeconds); }
 });
 
 // Add an event listener to save the current configuration, will validate it first.
-document.getElementById('save').addEventListener('click', function ()
+getElement('save').addEventListener('click', async function ()
 {
     if (!validateConfiguration()) { return; }
 
     // If API key was updated, set it. If still obfuscated, don't.
-    if (!isAPIKeyObfuscated(getElement('api-key').value))
+    const apiKey = getElement('api-key').value;
+    if (!isAPIKeyObfuscated(apiKey))
     {
-        chrome.storage.sync.set({ pdAPIKey: getElement('api-key').value });
+        await chrome.storage.local.set({ pdAPIKey: apiKey });
     }
 
-    // Get the correct badge-location value
-    badgeLocation = getElement('badge-location');
-    badgeLocation = badgeLocation.options[badgeLocation.selectedIndex].value;
-
-    chrome.storage.sync.set(
+    await chrome.storage.sync.set(
     {
         pdAccountSubdomain:   getElement('account-subdomain').value,
+        pdFromEmail:          getElement('from-email').value,
+        pdPollSeconds:        parseInt(getElement('poll-seconds').value, 10),
         pdIncludeLowUrgency:  getElement('low-urgency').checked,
         pdRemoveButtons:      getElement('remove-buttons').checked,
         pdOpenOnAck:          getElement('open-on-ack').checked,
@@ -84,90 +76,48 @@ document.getElementById('save').addEventListener('click', function ()
         pdFilterUsers:        getElement('filter-users').value,
         pdFilterTeams:        getElement('filter-teams').value,
         pdShowBadgeUpdates:   getElement('show-badge').checked,
-        pdBadgeLocation:      badgeLocation
-    },
-    function()
-    {
-        // Tell the notifier to reload itself with the latest configuration.
-        chrome.runtime.getBackgroundPage(function(bgpg)
-        {
-          bgpg.reloadNotifier();
-        });
-
-        // Let the user know things saved properly.
-        getElement('saved').className = 'saved';
-        setTimeout(function() { getElement('saved').className = ''; }, 3000);
-
-        // Remove badge icon if it was previously set.
-        if (!getElement('show-badge').checked) { chrome.browserAction.setBadgeText({ text: '' }); }
+        pdBadgeLocation:      getElement('badge-location').value
     });
+
+    // The service worker picks up storage changes itself, so just let the user know things saved.
+    getElement('saved').className = 'saved';
+    setTimeout(function() { getElement('saved').className = ''; }, 3000);
 });
 
-// Wrapper method to get the element of a field from the page.
-function getElement(elementId)
+// Mark a field as valid or invalid, returning whether it was valid.
+function markField(element, isValid)
 {
-    return document.getElementById(elementId);
-}
-
-// Helper to determine if value is an integer.
-function isInteger(value)
-{
-    var x;
-    return isNaN(value) ? !1 : (x = parseFloat(value), (0 | x) === x);
+    element.classList.toggle('bad', !isValid);
+    return isValid;
 }
 
 // This will validate that our configuration is usable.
 function validateConfiguration()
 {
-    var isValid = true;
-    var e = null;
+    let isValid = true;
 
-    // Subdomain is required.
-    e = getElement('account-subdomain');
-    if (e.value == "")
-    {
-        e.className = "bad";
-        isValid = false;
-    }
+    // Subdomain is required, and must be a plain subdomain (not a URL).
+    const subdomain = getElement('account-subdomain');
+    subdomain.value = subdomain.value.trim().toLowerCase();
+    isValid = markField(subdomain, isValidSubdomain(subdomain.value)) && isValid;
 
-    // API Key should be exactly 20 chars long.
-    e = getElement('api-key');
-    if (e.value !== ""
-        && e.value.length != 20)
-    {
-        e.className = "bad";
-        isValid = false;
-    }
+    // API key is optional, but must look like a key if provided.
+    const apiKey = getElement('api-key');
+    apiKey.value = apiKey.value.trim();
+    isValid = markField(apiKey, apiKey.value === '' || isAPIKeyObfuscated(apiKey.value) || isValidAPIKey(apiKey.value)) && isValid;
 
-    // Filter services shouldn't have any spaces
-    e = getElement('filter-services');
-    e.value = e.value.replace(/\s+/g, '');
-    if (e.value !== ""
-        && e.value.indexOf(" ") > -1)
-    {
-        e.className = "bad";
-        isValid = false;
-    }
+    // Email is optional.
+    const fromEmail = getElement('from-email');
+    fromEmail.value = fromEmail.value.trim();
+    isValid = markField(fromEmail, fromEmail.value === '' || isValidEmail(fromEmail.value)) && isValid;
 
-    // Filter users shouldn't have any spaces.
-    e = getElement('filter-users');
-    e.value = e.value.replace(/\s+/g, '');
-    if (e.value !== ""
-        && e.value.indexOf(" ") > -1)
+    // Filters are comma-separated IDs, with no spaces.
+    ['filter-services', 'filter-users', 'filter-teams'].forEach(function(id)
     {
-        e.className = "bad";
-        isValid = false;
-    }
-
-    // Filter teams shouldn't have any spaces.
-    e = getElement('filter-teams');
-    e.value = e.value.replace(/\s+/g, '');
-    if (e.value !== ""
-        && e.value.indexOf(" ") > -1)
-    {
-        e.className = "bad";
-        isValid = false;
-    }
+        const e = getElement(id);
+        e.value = e.value.replace(/\s+/g, '').replace(/^,+|,+$/g, '');
+        isValid = markField(e, /^[A-Za-z0-9,]*$/.test(e.value)) && isValid;
+    });
 
     return isValid;
 }
