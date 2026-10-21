@@ -7,12 +7,31 @@ A Google Chrome and Microsoft Edge extension to show PagerDuty notifications usi
 All you need to do for it to work is to have an active session on your PagerDuty subdomain, or provide a PagerDuty API key for your account.
 
 ## Installing from Source
-The extension uses Manifest V3 and requires Chrome or Edge 120 or newer.
+The extension uses Manifest V3 and requires Chrome or Edge 120 or newer. No build step or other tools are needed.
 
-1. Open `chrome://extensions` (Chrome) or `edge://extensions` (Edge).
-2. Enable **Developer mode**.
-3. Click **Load unpacked** and select the `pd-notifier` directory.
-4. The options page will open so you can configure your account.
+### 1. Get the files
+1. On the GitHub page for this repository, click **Code → Download ZIP**.
+2. Extract the zip (on Windows, right-click it and choose **Extract All…**) to a permanent location, such as `C:\Extensions\`. The browser loads the extension directly from this folder, so don't leave it in your Downloads folder. If the folder is moved or deleted, the extension stops working.
+
+Alternatively, `git clone` the repository.
+
+### 2. Load it into the browser
+1. Open `edge://extensions` (Edge) or `chrome://extensions` (Chrome) in the address bar.
+2. Turn on **Developer mode**. In Edge it's a toggle in the left sidebar (under the ☰ menu on narrow windows); in Chrome it's in the top-right corner.
+3. Click **Load unpacked**.
+4. Select the **`pd-notifier`** folder, which is the one containing `manifest.json`, e.g. `C:\Extensions\chrome-notifier-master\pd-notifier`. Selecting the outer folder gives a "Manifest file is missing" error.
+5. The options page opens automatically. Enter your account subdomain and (optionally) API key, click **Save**, then click **Validate** to check access.
+
+### 3. Pin the icon and test
+1. Click the Extensions (puzzle piece) icon in the toolbar, then the pin/eye icon next to **PagerDuty Notifier**.
+2. Right-click the pinned icon and choose **Show test notification**.
+
+If the test notification doesn't appear on Windows:
+* In **Settings → System → Notifications**, make sure the browser is allowed to show notifications and **Do not disturb** is off.
+* Notifications are only shown while the browser is running, though it can be minimized.
+
+### Updating
+Download and extract the new version over the same folder, then click **Reload** on the extension's card in `edge://extensions` or `chrome://extensions`. Your settings are kept.
 
 ## Using an API Key
 The extension can be used without having to provide an API key, however, in that case, it will only work if you have an active session for your PagerDuty domain. That means you must be logged into your domain, but you don't need to keep the tab open. Session-based access relies on PagerDuty's web app endpoints and browser cookie behaviour, so an API key is recommended for reliable notifications.
