@@ -1,0 +1,14 @@
+{
+  "name": "pd-chrome-notifier",
+  "private": true,
+  "description": "Development tooling for the PagerDuty Notifier browser extension.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "package": "node scripts/package.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

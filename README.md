@@ -43,6 +43,19 @@ See "[API Access Keys](https://support.pagerduty.com/docs/api-access-keys)" for 
 * **Play a notification sound?** - If checked, a short sound will play whenever a new notification is triggered.
 * **Show triggered count on icon?** - If checked, the icon in your toolbar will show the number of triggered incidents matching your filters.
 
+## Development
+Requires Node.js 20 or newer.
+
+```sh
+npm install
+npx playwright install chromium   # One-off download of the browser used by the tests.
+npm test                          # Loads the extension in headless Chromium against a mocked PagerDuty API.
+HEADED=1 npm test                 # Same, with a visible browser window.
+npm run package                   # Builds dist/pd-notifier-<version>.zip for the Chrome Web Store / Edge Add-ons.
+```
+
+Bump `version` in `pd-notifier/manifest.json` before packaging a new release.
+
 ## License
 [Apache 2](http://www.apache.org/licenses/LICENSE-2.0) (See LICENSE file)
 
